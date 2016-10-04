@@ -1,0 +1,123 @@
+#=============================================#
+#   Skrypt napisany przez: herhor67           #
+#   Nazwa: JackPOT                            #
+#=============================================#
+#  Licencja skryptu:                          #
+# * Nie zezwalam na:                          #
+# - Usuwanie treści o autorze!                #
+# - Podszywanie się pod autora!               #
+# - Używanie kodu skryptu w swoich skryptach! #
+# - Zarabianie na skrypcie!                   #
+# - Wrzucanie skryptu do internetu!           #
+# - Dodawanie kodu na swoja potrzebe!         #
+# - Modyfikowanie kodu na swoja potrzebe!     #
+# * (poza opcjami i wiadomościami)            #
+#=============================================#
+
+#hercore jackpot
+
+options:
+	item: flower pot named "&4JackPot"
+	mingraczy: 2
+	czas: 60*3 #3 minuty
+
+on script load:
+	set {jackpot::time} to {@czas}
+
+on inventory close:
+	clear {jackpot::opened::%player%}
+
+on quit:
+	clear {jackpot::opened::%player%}
+
+command /jackpot:
+	trigger:
+		if player doesn't have {@item}:
+			give player {@item}
+
+on click:
+	player's tool is {@item}:
+		cancel event
+		set {jackpot::opened::%player%} to true
+		open chest with 3 rows named "&4&lJackPot" to player
+		wait 1 tick
+		set {_slot} to 0
+		loop 27 times:
+			format slot {_slot} of player with green glass pane named " " to be unstealable
+			add 1 to {_slot}
+		set {_slot} to 10
+		set {_value} to 1
+		loop 7 times:
+			player's balance is greater than or equal to {_value}:
+				set {_value.%loop-number%} to {_value}
+				format slot {_slot} of player with dandelion named "&6Dodaj: &a&l$%{_value}%" to close then run "jackpotdodaj %player% %{_value}%"
+			else:
+				format slot {_slot} of player with red poppy named "&6Dodaj: &c&l$%{_value}%" to be unstealable
+			add 1 to {_slot}
+			set {_value} to {_value}*10
+
+
+command /jackpotdodaj <player> <number>:
+	executable by: console
+	trigger:
+		set {_gracz} to player-arg
+		set {_wartosc} to number-arg
+		broadcast "%{_gracz}% i %{_wartosc}%/%{_gracz}'s balance%"
+		if {_gracz}'s balance is greater than or equal to {_wartosc}:
+			remove {_wartosc} from {_gracz}'s balance
+			add {_wartosc} to {jackpot::value::%{_gracz}%}
+			send "&6Wpłaciłeś &c&l%{_wartosc}% &6do &4JackPota&6! Sprawdzaj swoje szanse na wygraną w menu!" to {_gracz}
+		else:
+			send "&cBrak środków!" to {_gracz}
+
+
+every second:
+	loop {jackpot::value::*}:
+		add loop-value to {_wartoscwsumie}
+	set {_ilegraczy} to size of {jackpot::value::*}
+	if {_ilegraczy} is greater than or equal to {@mingraczy}:
+		remove 1 from {jackpot::time}
+		{jackpot::time} is 0:
+			#ten system jest posrany, sam wymyslilem, to widac ;_____; #
+			set {_calosc} to 0
+			loop {jackpot::value::*}:
+				set {_minimal::%loop-index%} to {_calosc}+1
+				add loop-value to {_calosc}
+				set {_maximal::%loop-index%} to {_calosc}
+				#broadcast "%loop-index%: %{_minimal::%loop-index%}% - %{_maximal::%loop-index%}%"
+			set {_los} to random integer between 1 and {_calosc}
+			#broadcast "%{_los}%"
+			loop {jackpot::value::*}:
+				if {_los} is greater than or equal to {_minimal::%loop-index%}:
+					if {_los} is less than or equal to {_maximal::%loop-index%}:
+						set {_winner} to (loop-index parsed as player)
+			{_winner} is set:
+				broadcast "&6Zwycięzcą &4JackPota &6został &c%{_winner}%&6! Zgarnął &c&l$%{_wartoscwsumie}%&6! Gratulujemy!"
+			else:
+				broadcast "&6Error, nie ma zwyciezcy jackpota, shit happened."
+			set {jackpot::time} to {@czas}
+			add {_wartoscwsumie} to {_winner}'s balance
+			loop {jackpot::opened::*}:
+				close (loop-index parsed as player)'s inventory
+			clear {jackpot::opened::*}
+			clear {jackpot::value::*}
+		else:
+			#dalej odliczamy#
+			loop {jackpot::opened::*}:
+				format slot 2 of (loop-index parsed as player) with redstone named "&6Twoja wpłata: &c&l%{jackpot::value::%loop-index%}%" to be unstealable
+				format slot 3 of (loop-index parsed as player) with redstone block named "&6Nagroda: &c&l%{_wartoscwsumie}%" to be unstealable
+				format slot 4 of (loop-index parsed as player) with clock named "&6Pozostały czas: &c&l%{jackpot::time}%s" to be unstealable
+				format slot 5 of (loop-index parsed as player) with compass named "&6Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to be unstealable
+			loop {jackpot::value::*}:
+				{jackpot::time} is 120:
+					send "&6Zostały &c2 minuty &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
+				{jackpot::time} is 60:
+					send "&6Została &c1 minuta &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
+				{jackpot::time} is 30:
+					send "&6Zostało &c30 sekund &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
+				{jackpot::time} is 15:
+					send "&6Zostało &c15 sekund &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
+				{jackpot::time} is 10:
+					send "&6Zostało &c10 sekund &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
+				{jackpot::time} is less than 6:
+					send "&6Zostały &c%{jackpot::time}% sekundy &6do końca losowania! Twoja szansa: &c&l%({jackpot::value::%loop-index%}/{_wartoscwsumie})*100%%%" to (loop-index parsed as player)
